@@ -18,6 +18,10 @@ input {
   padding: 5px;
 }
 
+a {
+  text-decoration: none;
+}
+
 .container {
   margin: auto;
   margin-top: 20px;
@@ -88,4 +92,21 @@ input {
   margin: 10px;
   padding: 3px;
   width: 210px;
+}
+
+.backBtn {
+  cursor: pointer;
+padding: 10px;
+border: none;
+border-radius: 5px;
+}
+
+.backBtn:hover {
+  background: rgb(224, 224, 224);
+  transition: 1s;
+}
+
+.err404 {
+  color: red;
+  font-size: 24px;
 }

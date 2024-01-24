@@ -4,8 +4,7 @@ import { useForm } from 'react-hook-form';
 import * as yup from 'yup'
 import {yupResolver} from '@hookform/resolvers/yup'
 import { debounce } from 'lodash';
-import { onValue, push, ref, remove, set } from 'firebase/database';
-import { db } from './firebase';
+import { Route, Routes } from 'react-router-dom';
 
 const fieldsScheme = yup.object().shape({
   userName: yup
@@ -21,7 +20,7 @@ const fieldsScheme = yup.object().shape({
 })
 
 function sortByAlphabet(toDos) {
-  return Object.values(toDos).sort((a, b) => {
+  return toDos.sort((a, b) => {
     if (a.toDo.toLowerCase() < b.toDo.toLowerCase()) {
       return -1;
     }
@@ -34,7 +33,8 @@ function sortByAlphabet(toDos) {
 
 function App() {
 
-  const [toDos, setToDos] = useState({})
+  const [toDos, setToDos] = useState([])
+  const [refreshToDosFlag, setRefreshToDosFlag] = useState(false)
   const [newName, setNewName] = useState('')
   const [newToDo, setNewToDo] = useState('')
   const [sortByAlphabetFlag, setSortByAlphabetFlag] = useState(false)
@@ -56,35 +56,40 @@ function App() {
   const error = errors.userName?.message || errors.toDo?.message
 
   const requestAddToDo = (formData) => {
-
-    const toDosDbRef = ref(db, 'toDos')
-
-    push(toDosDbRef, {...formData, completed: false})
+    fetch('http://localhost:3005/toDos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json;charset=utf-8' },
+      body: JSON.stringify({...formData, completed: false})
+    })
+        .then((rawResponse) => rawResponse.json())
+        .then((response) => {
+          console.log('Server response:', response)
+          setRefreshToDosFlag(!refreshToDosFlag)
+        })
   }
 
-  let searchToDo = debounce((loadedToDos) => {
-    if (loadedToDos) {
-      setToDos(Object.values(loadedToDos).filter(({toDo}) => toDo.includes(search)))
-    }
-  }, 10);
-
   useEffect(() => {
-    const toDosDbRef = ref(db, 'toDos')
+    fetch('http://localhost:3005/toDos')
+      .then((loadedData) => loadedData.json())
+      .then((loadedToDos) => {
+        if (!sortByAlphabetFlag) {
+          setToDos(loadedToDos)
+        } else {
+          setToDos(sortByAlphabet(loadedToDos))
+        }
+        
+      })
+  }, [refreshToDosFlag, sortByAlphabetFlag])
 
-    return onValue(toDosDbRef, (snapshot) => {
-      const loadedToDos = snapshot.val() || {}
+  let searchToDo = debounce(() => {
+    fetch('http://localhost:3005/toDos')
+      .then((loadedData) => loadedData.json())
+      .then((loadedToDos) => {setToDos(loadedToDos.filter(({toDo}) => toDo.includes(search))); console.log(search)})
+  }, 500);
 
-      if (!sortByAlphabetFlag) {
-        setToDos(loadedToDos)
-      } else {
-        setToDos(sortByAlphabet(loadedToDos))
-      }
-
-      if (search) {
-        searchToDo(loadedToDos)
-      }
-    })
-  }, [sortByAlphabetFlag, search])
+    useEffect(() => {
+      searchToDo()
+    }, [searchFlag])
 
   const setDisplayCurrentDiv = (id, datasetName) => {
     const currentDiv = document.querySelector(`[${datasetName}='${id}']`)
@@ -92,31 +97,67 @@ function App() {
   }
 
   const changeNameOnToDo = (id) => {
-
-    const toDosIdRef = ref(db, `toDos/${id}`)
-
-    set(toDosIdRef, {...toDos[`${id}`], userName: newName})
+    fetch(`http://localhost:3005/toDos/${id}`)
+      .then((rawResponse) => rawResponse.json())
+      .then((response) => {
+        fetch(`http://localhost:3005/toDos/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json;charset=utf-8' },
+          body: JSON.stringify({...response, userName: newName})
+        })
+            .then((rawResponse) => rawResponse.json())
+            .then((response) => {
+              console.log('Server response:', response)
+              setRefreshToDosFlag(!refreshToDosFlag)
+            })
+            .finally(setDisplayCurrentDiv(id, 'data-name-id'))
+      })
   }
   
   const changeToDoOnToDo = (id) => {
-
-    const toDosIdRef = ref(db, `toDos/${id}`)
-
-    set(toDosIdRef, {...toDos[`${id}`], toDo: newToDo})
+    fetch(`http://localhost:3005/toDos/${id}`)
+      .then((rawResponse) => rawResponse.json())
+      .then((response) => {
+        fetch(`http://localhost:3005/toDos/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json;charset=utf-8' },
+          body: JSON.stringify({...response, toDo: newToDo})
+        })
+            .then((rawResponse) => rawResponse.json())
+            .then((response) => {
+              console.log('Server response:', response)
+              setRefreshToDosFlag(!refreshToDosFlag)
+            })
+            .finally(setDisplayCurrentDiv(id, 'data-to-do-id'))
+      })
   }
   
   const changeCompletedOnToDo = (id) => {
-
-    const toDosIdRef = ref(db, `toDos/${id}`)
-
-    set(toDosIdRef, {...toDos[`${id}`], completed: !toDos[`${id}`].completed}) 
+    fetch(`http://localhost:3005/toDos/${id}`)
+      .then((rawResponse) => rawResponse.json())
+      .then((response) => {
+        fetch(`http://localhost:3005/toDos/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json;charset=utf-8' },
+          body: JSON.stringify({...response, completed: response.completed? false: true})
+        })
+            .then((rawResponse) => rawResponse.json())
+            .then((response) => {
+              console.log('Server response:', response)
+              setRefreshToDosFlag(!refreshToDosFlag)
+            })
+      })  
   }
 
   const deleteToDo = (id) => {
-
-    const toDosIdRef = ref(db, `toDos/${id}`)
-
-    remove(toDosIdRef)
+    fetch(`http://localhost:3005/toDos/${id}`)
+      .then(
+        fetch(`http://localhost:3005/toDos/${id}`, {method: 'DELETE'})
+          .then((response) => {
+            console.log('Server response:', response)
+            setRefreshToDosFlag(!refreshToDosFlag)
+          })
+      )
   }
 
   return (
@@ -155,9 +196,9 @@ function App() {
           ></input>
       </div>
 
-      {Object.entries(toDos).map(([id, {userName, toDo, completed}]) => 
+      {toDos.map(({userName, id, toDo, completed}) => 
         <div key={id} className={styles.toDo}> 
-          Имя: {userName} <br></br> Задача: <span className='toDoSpan' style={{color: completed? 'green': 'red'}}>{toDo}</span>
+          Имя: {userName} <br></br> Задача: <span className='toDoSpan' style={{color: completed? 'green': 'red'}}>{toDo.length >= 40? `${toDo.slice(0, 40)}...` : toDo}</span>
 
             <div data-name-id={id} className={styles.changeInfo}>
               <input 
@@ -191,6 +232,10 @@ function App() {
           <button data-id={id} onClick={(event) => deleteToDo(event.target.dataset.id)} className={styles.deleteButton} disabled={false}>Удалить</button>
         </div>
       )}
+
+      <Routes>
+        <Route />
+      </Routes>
     </div>  
   );
 }
