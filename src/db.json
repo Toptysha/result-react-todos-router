@@ -11,6 +11,18 @@
       "userName": "Джон",
       "toDo": "съесть роллы",
       "completed": true
+    },
+    {
+      "id": "72ee",
+      "userName": "Nikola",
+      "toDo": "Апельсины помыть",
+      "completed": false
+    },
+    {
+      "id": "9b66",
+      "userName": "Карл",
+      "toDo": "Съездить в магазин, купить продуктов, помыть машину, вкусно покушать, не опоздать",
+      "completed": false
     }
   ]
 }
